@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Secure Chat Room</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #joinScreen {
+      text-align: center;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    #chatContainer {
+      width: 90%;
+      max-width: 500px;
+      background: white;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      height: 90vh;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    #chat {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .message {
+      margin: 10px 0;
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 20px;
+      clear: both;
+    }
+
+    .you {
+      background-color: #007bff;
+      color: white;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .other {
+      background-color: #e5e5ea;
+      color: black;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    #msgInputBox {
+      display: flex;
+      padding: 10px;
+    }
+
+    #msgInput {
+      flex: 1;
+      padding: 10px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      border-radius: 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="joinScreen">
+    <h2>Join Private Chat</h2>
+    <input type="text" id="usernameInput" placeholder="Your name" /><br><br>
+    <input type="text" id="roomInput" placeholder="Private code (e.g., 1234)" /><br><br>
+    <button onclick="joinChat()">Join</button>
+  </div>
+
+  <div id="chatContainer" style="display: none;">
+    <div id="chat"></div>
+    <div id="msgInputBox">
+      <input id="msgInput" placeholder="Type your message" autocomplete="off" />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    let username = '';
+    let roomCode = '';
+    const ws = new WebSocket(location.origin.replace('http', 'ws'));
+
+    function joinChat() {
+      const uname = document.getElementById('usernameInput').value.trim();
+      const rcode = document.getElementById('roomInput').value.trim();
+      if (!uname || !rcode) {
+        alert("Please enter your name and private code");
+        return;
+      }
+      username = uname;
+      roomCode = rcode;
+      document.getElementById('joinScreen').style.display = 'none';
+      document.getElementById('chatContainer').style.display = 'flex';
+    }
+
+    function encrypt(text) {
+      return btoa(unescape(encodeURIComponent(text)));
+    }
+
+    function decrypt(text) {
+      return decodeURIComponent(escape(atob(text)));
+    }
+
+    ws.onmessage = (event) => {
+      const msgObj = JSON.parse(decrypt(event.data));
+      if (msgObj.room !== roomCode) return;
+
+      const chat = document.getElementById('chat');
+      if (msgObj.username === username) return;
+
+      const msgDiv = document.createElement('div');
+      msgDiv.classList.add('message', 'other');
+      msgDiv.innerHTML = `<strong>${msgObj.username}:</strong><br>${msgObj.message}`;
+      chat.appendChild(msgDiv);
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    function sendMessage() {
+      const input = document.getElementById('msgInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      const msgObj = {
+        username,
+        room: roomCode,
+        message
+      };
+
+      const encrypted = encrypt(JSON.stringify(msgObj));
+      ws.send(encrypted);
+
+      const chat = document.getElementById('chat');
+      const msgDiv = document.createElement('div');
+      msgDiv.classList.add('message', 'you');
+      msgDiv.innerHTML = `<strong>You:</strong><br>${message}`;
+      chat.appendChild(msgDiv);
+      chat.scrollTop = chat.scrollHeight;
+
+      input.value = '';
+    }
+  </script>
+</body>
+</html>
